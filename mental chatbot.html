@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mental Health Support Chatbot</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d1117;--s2:#1c2330;--border:rgba(255,255,255,0.07);
+  --accent:#7ee8a2;--a2:#56cfb2;--a3:#a78bfa;
+  --text:#e6edf3;--muted:#8b949e;
+  --ub:linear-gradient(135deg,#7ee8a2,#56cfb2);--bb:#1c2330;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+body::before{content:'';position:fixed;top:-40%;left:-20%;width:80%;height:80%;background:radial-gradient(ellipse,rgba(126,232,162,0.04)0%,transparent 70%);pointer-events:none;animation:drift 12s ease-in-out infinite alternate}
+body::after{content:'';position:fixed;bottom:-30%;right:-10%;width:60%;height:60%;background:radial-gradient(ellipse,rgba(167,139,250,0.05)0%,transparent 70%);pointer-events:none;animation:drift2 15s ease-in-out infinite alternate}
+@keyframes drift{from{transform:translate(0,0)}to{transform:translate(3%,5%)}}
+@keyframes drift2{from{transform:translate(0,0)}to{transform:translate(-3%,-4%)}}
+
+/* ── SETUP SCREEN ── */
+#setupScreen{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto}
+.setup-card{background:#161b22;border:1px solid var(--border);border-radius:24px;padding:32px 28px;max-width:460px;width:100%;animation:fu .4s ease both}
+.setup-icon{font-size:44px;text-align:center;margin-bottom:14px}
+.setup-card h2{font-family:'Lora',serif;font-size:1.45rem;font-weight:600;margin-bottom:8px;text-align:center;background:linear-gradient(135deg,#7ee8a2,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.setup-card .sub{color:var(--muted);font-size:.83rem;line-height:1.65;margin-bottom:20px;text-align:center}
+
+/* provider tabs */
+.tabs{display:flex;gap:8px;margin-bottom:20px;background:var(--bg);border-radius:12px;padding:4px}
+.tab{flex:1;padding:9px;border-radius:9px;border:none;background:none;color:var(--muted);font-family:inherit;font-size:.8rem;cursor:pointer;transition:all .2s;font-weight:500}
+.tab.active{background:var(--s2);color:var(--text);box-shadow:0 0 0 1px var(--border)}
+.tab:hover:not(.active){color:var(--text)}
+
+.provider-panel{display:none}
+.provider-panel.show{display:block}
+
+.badge-free{display:inline-block;background:rgba(126,232,162,.15);border:1px solid rgba(126,232,162,.3);color:var(--accent);font-size:.68rem;padding:2px 8px;border-radius:20px;font-weight:600;margin-left:6px;vertical-align:middle}
+.badge-paid{display:inline-block;background:rgba(167,139,250,.15);border:1px solid rgba(167,139,250,.3);color:var(--a3);font-size:.68rem;padding:2px 8px;border-radius:20px;font-weight:600;margin-left:6px;vertical-align:middle}
+
+.how-to{background:rgba(126,232,162,.04);border:1px solid rgba(126,232,162,.12);border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:.8rem;color:#c9d1d9;line-height:1.7}
+.how-to b{color:var(--accent)}
+.how-to a{color:var(--accent);text-decoration:none}
+.how-to a:hover{text-decoration:underline}
+.how-to ol{margin-left:16px;margin-top:4px}
+.how-to li{margin-bottom:3px}
+
+.key-wrap{position:relative;margin-bottom:8px}
+.key-wrap input{width:100%;background:var(--s2);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',monospace;font-size:.82rem;padding:11px 44px 11px 14px;border-radius:12px;outline:none;transition:border-color .2s,box-shadow .2s}
+.key-wrap input:focus{border-color:rgba(126,232,162,.5);box-shadow:0 0 0 3px rgba(126,232,162,.08)}
+.key-wrap input::placeholder{color:var(--muted);font-family:'DM Sans',sans-serif}
+.eye{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:4px}
+.eye:hover{color:var(--text)}
+.err{color:#ff8080;font-size:.75rem;margin-bottom:10px;min-height:16px}
+
+.go-btn{width:100%;background:linear-gradient(135deg,#7ee8a2,#56cfb2);border:none;color:#0d1117;font-family:'DM Sans',sans-serif;font-size:.92rem;font-weight:700;padding:12px;border-radius:12px;cursor:pointer;transition:all .2s;margin-top:2px}
+.go-btn:hover{box-shadow:0 4px 18px rgba(126,232,162,.4);transform:translateY(-1px)}
+.go-btn:active{transform:translateY(0)}
+.note{font-size:.7rem;color:var(--muted);margin-top:12px;text-align:center;line-height:1.6}
+
+/* ── HEADER ── */
+header{display:flex;align-items:center;justify-content:space-between;padding:13px 22px;border-bottom:1px solid var(--border);background:rgba(13,17,23,0.93);backdrop-filter:blur(20px);z-index:10;flex-shrink:0}
+.brand{display:flex;align-items:center;gap:12px}
+.avwrap{position:relative}
+.av{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#7ee8a2,#56cfb2,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 0 3px rgba(126,232,162,0.2),0 0 20px rgba(126,232,162,0.12)}
+.sdot{position:absolute;bottom:1px;right:1px;width:11px;height:11px;background:#56cfb2;border-radius:50%;border:2px solid var(--bg);animation:pdot 2.5s infinite}
+@keyframes pdot{0%,100%{box-shadow:0 0 0 0 rgba(86,207,178,.5)}50%{box-shadow:0 0 0 5px rgba(86,207,178,0)}}
+.btxt h1{font-family:'Lora',serif;font-size:1.02rem;font-weight:600;background:linear-gradient(90deg,#7ee8a2,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.btxt p{font-size:.67rem;color:var(--muted);margin-top:2px}
+.hbadge{background:rgba(126,232,162,.1);border:1px solid rgba(126,232,162,.2);color:var(--accent);font-size:.67rem;padding:4px 10px;border-radius:20px;font-weight:500;white-space:nowrap}
+
+.cbar{background:linear-gradient(90deg,rgba(255,107,107,.12),rgba(167,139,250,.07));border-bottom:1px solid rgba(255,107,107,.2);padding:6px 22px;font-size:.68rem;color:#ffa0a0;display:flex;align-items:center;gap:7px;flex-shrink:0;flex-wrap:wrap}
+
+.cwrap{flex:1;display:flex;flex-direction:column;overflow:hidden;z-index:1;min-height:0}
+#msgs{flex:1;overflow-y:auto;padding:22px 18px;display:flex;flex-direction:column;gap:17px;scroll-behavior:smooth;min-height:0}
+#msgs::-webkit-scrollbar{width:4px}
+#msgs::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+.mrow{display:flex;align-items:flex-end;gap:9px;max-width:760px;width:100%;animation:fu .32s ease both}
+@keyframes fu{from{opacity:0;transform:translateY(11px)}to{opacity:1;transform:translateY(0)}}
+.mrow.user{flex-direction:row-reverse;margin-left:auto}
+.mrow.bot{margin-right:auto}
+.mav{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px}
+.mav.bav{background:linear-gradient(135deg,#7ee8a2,#a78bfa);box-shadow:0 0 10px rgba(126,232,162,.2)}
+.mav.uav{background:linear-gradient(135deg,#667eea,#764ba2)}
+.bwrap{display:flex;flex-direction:column;gap:3px;max-width:calc(100% - 43px)}
+.mrow.user .bwrap{align-items:flex-end}
+.mrow.bot  .bwrap{align-items:flex-start}
+.sname{font-size:.67rem;color:var(--muted);padding:0 4px;font-weight:500}
+.bub{padding:12px 16px;border-radius:18px;font-size:.9rem;line-height:1.65;word-break:break-word}
+.mrow.bot  .bub{background:var(--bb);border:1px solid var(--border);border-bottom-left-radius:4px}
+.mrow.user .bub{background:var(--ub);color:#0d1117;font-weight:500;border-bottom-right-radius:4px}
+.bub.crisis{border-color:rgba(255,107,107,.4)!important;background:rgba(255,107,107,.07)!important}
+.mt{font-size:.62rem;color:var(--muted);padding:0 4px}
+
+.typing{display:flex;align-items:center;gap:5px;padding:12px 16px;background:var(--bb);border:1px solid var(--border);border-radius:18px;border-bottom-left-radius:4px;width:fit-content}
+.td{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:bounce 1.2s infinite}
+.td:nth-child(2){animation-delay:.2s;background:var(--a2)}
+.td:nth-child(3){animation-delay:.4s;background:var(--a3)}
+@keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-7px);opacity:1}}
+
+.mbar{padding:9px 18px;display:flex;align-items:center;gap:7px;border-top:1px solid var(--border);background:rgba(13,17,23,.6);backdrop-filter:blur(10px);flex-wrap:wrap;flex-shrink:0}
+.mlbl{font-size:.71rem;color:var(--muted);font-weight:500;white-space:nowrap}
+.mb{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);font-size:.73rem;padding:4px 10px;border-radius:20px;cursor:pointer;transition:all .2s;font-family:inherit}
+.mb:hover{background:rgba(126,232,162,.1);border-color:rgba(126,232,162,.3);color:var(--accent);transform:translateY(-1px)}
+
+.iarea{padding:11px 18px 15px;background:rgba(13,17,23,.93);backdrop-filter:blur(20px);border-top:1px solid var(--border);flex-shrink:0}
+.irow{display:flex;align-items:flex-end;gap:7px;background:var(--s2);border:1px solid var(--border);border-radius:16px;padding:5px 5px 5px 13px;transition:border-color .2s,box-shadow .2s}
+.irow:focus-within{border-color:rgba(126,232,162,.4);box-shadow:0 0 0 3px rgba(126,232,162,.06)}
+.irow.listening{border-color:rgba(255,107,107,.5)!important;box-shadow:0 0 0 3px rgba(255,107,107,.08)!important}
+#inp{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:inherit;font-size:.9rem;line-height:1.5;resize:none;min-height:24px;max-height:120px;padding:6px 0}
+#inp::placeholder{color:var(--muted)}
+
+#micBtn{width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .25s;color:var(--muted)}
+#micBtn:hover{background:rgba(126,232,162,.12);color:var(--accent);border-color:rgba(126,232,162,.4)}
+#micBtn.on{background:rgba(255,107,107,.18);border-color:rgba(255,107,107,.7);color:#ff6b6b;animation:mpulse .9s ease-in-out infinite}
+@keyframes mpulse{0%,100%{box-shadow:0 0 0 0 rgba(255,107,107,.5)}50%{box-shadow:0 0 0 10px rgba(255,107,107,0)}}
+#micBtn svg{width:17px;height:17px;pointer-events:none}
+#sendBtn{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#7ee8a2,#56cfb2);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;color:#0d1117}
+#sendBtn:hover{transform:scale(1.06);box-shadow:0 4px 14px rgba(126,232,162,.35)}
+#sendBtn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+#sendBtn svg{width:17px;height:17px}
+
+#vstrip{display:none;align-items:center;justify-content:space-between;margin-top:8px;background:rgba(255,107,107,.09);border:1px solid rgba(255,107,107,.22);border-radius:10px;padding:7px 12px}
+#vstrip.show{display:flex}
+#vstrip.done{background:rgba(126,232,162,.09);border-color:rgba(126,232,162,.3)}
+.vsleft{display:flex;align-items:center;gap:8px;font-size:.78rem;color:#ff9090;font-weight:500}
+#vstrip.done .vsleft{color:var(--accent)}
+.sbars{display:flex;align-items:flex-end;gap:2px;height:18px}
+.sb{width:3px;border-radius:2px;background:currentColor;animation:sba .6s ease-in-out infinite}
+.sb:nth-child(1){height:6px;animation-delay:0s}.sb:nth-child(2){height:13px;animation-delay:.1s}
+.sb:nth-child(3){height:9px;animation-delay:.2s}.sb:nth-child(4){height:16px;animation-delay:.08s}
+.sb:nth-child(5){height:7px;animation-delay:.16s}
+@keyframes sba{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
+#vstripTxt{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#vstopBtn{background:none;border:1px solid currentColor;color:inherit;cursor:pointer;font-size:.72rem;padding:2px 9px;border-radius:6px;font-family:inherit}
+.ihint{font-size:.62rem;color:var(--muted);text-align:center;margin-top:7px;opacity:.65}
+
+.wcard{text-align:center;padding:28px 18px;max-width:450px;margin:auto;animation:fu .5s ease both}
+.wico{width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg,#7ee8a2,#56cfb2,#a78bfa);display:flex;align-items:center;justify-content:center;margin:0 auto 15px;box-shadow:0 0 40px rgba(126,232,162,.18);font-size:30px}
+.wcard h2{font-family:'Lora',serif;font-size:1.5rem;font-weight:600;margin-bottom:9px;background:linear-gradient(135deg,#7ee8a2,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.wcard p{color:var(--muted);font-size:.87rem;line-height:1.7;margin-bottom:19px}
+.chips{display:flex;flex-direction:column;gap:7px;align-items:center}
+.chip{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:9px 15px;font-size:.82rem;color:var(--text);cursor:pointer;transition:all .2s;width:100%;max-width:340px;text-align:left;font-family:inherit;display:flex;align-items:center;gap:9px}
+.chip:hover{background:rgba(126,232,162,.08);border-color:rgba(126,232,162,.25);transform:translateX(4px);color:var(--accent)}
+
+#permToast{display:none;position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a0a0a;border:1px solid rgba(255,107,107,.4);color:#ffc0c0;font-size:.8rem;padding:12px 18px;border-radius:12px;z-index:999;max-width:320px;text-align:center;line-height:1.6;animation:fu .3s ease both}
+#permToast.show{display:block}
+#permToast button{margin-top:8px;background:rgba(255,107,107,.15);border:1px solid rgba(255,107,107,.3);color:#ffa0a0;padding:3px 12px;border-radius:6px;cursor:pointer;font-size:.75rem;font-family:inherit}
+
+@media(max-width:600px){
+  header{padding:10px 13px}.btxt h1{font-size:.82rem}
+  #msgs{padding:13px 11px}.iarea{padding:9px 11px 13px}
+  .mbar{padding:7px 11px}.cbar{padding:5px 11px;font-size:.62rem}
+  .setup-card{padding:24px 18px}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ SETUP SCREEN ══ -->
+<div id="setupScreen">
+  <div class="setup-card">
+    <div class="setup-icon">🧠</div>
+    <h2>Mental Health Support Chatbot</h2>
+    <p class="sub">Choose your AI provider and enter your API key to begin.</p>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('groq')">Groq <span class="badge-free">FREE</span></button>
+      <button class="tab" onclick="switchTab('anthropic')">Anthropic <span class="badge-paid">Paid</span></button>
+    </div>
+
+    <!-- GROQ panel -->
+    <div class="provider-panel show" id="panel-groq">
+      <div class="how-to">
+        <b>Get a FREE Groq API key in 1 minute:</b>
+        <ol>
+          <li>Go to <a href="https://console.groq.com" target="_blank">console.groq.com</a></li>
+          <li>Sign up free (Google login works)</li>
+          <li>Click <b>API Keys</b> → <b>Create API Key</b></li>
+          <li>Copy the key and paste it below</li>
+        </ol>
+        Groq is completely free and very fast ⚡
+      </div>
+      <div class="key-wrap">
+        <input type="password" id="groqKey" placeholder="gsk_..." autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter') startChat()">
+        <button class="eye" onclick="toggleVis('groqKey')">👁</button>
+      </div>
+      <div class="err" id="groqErr"></div>
+      <button class="go-btn" onclick="startChat()">Start Chatting 💚</button>
+      <p class="note">Your key stays in your browser only — never sent to any other server.</p>
+    </div>
+
+    <!-- ANTHROPIC panel -->
+    <div class="provider-panel" id="panel-anthropic">
+      <div class="how-to" style="background:rgba(167,139,250,.04);border-color:rgba(167,139,250,.15)">
+        <b style="color:var(--a3)">Anthropic API key:</b>
+        <ol>
+          <li>Go to <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></li>
+          <li>API Keys → Create Key → copy it</li>
+          <li>Go to <b>Plans &amp; Billing → Add credit balance</b> (min $5)</li>
+          <li>Paste your key below</li>
+        </ol>
+        <b style="color:#ff9090">Note:</b> Requires paid credits. If you see a billing error, use Groq (free) instead.
+      </div>
+      <div class="key-wrap">
+        <input type="password" id="anthropicKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter') startChat()">
+        <button class="eye" onclick="toggleVis('anthropicKey')">👁</button>
+      </div>
+      <div class="err" id="anthropicErr"></div>
+      <button class="go-btn" onclick="startChat()">Start Chatting 💚</button>
+      <p class="note">Your key stays in your browser only — never sent to any other server.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAIN APP ══ -->
+<header>
+  <div class="brand">
+    <div class="avwrap">
+      <div class="av">🧠</div>
+      <div class="sdot"></div>
+    </div>
+    <div class="btxt">
+      <h1>Mental Health Support Chatbot</h1>
+      <p>Your compassionate companion — always here to listen</p>
+    </div>
+  </div>
+  <div class="hbadge">● Always here for you</div>
+</header>
+
+<div class="cbar">
+  <span>🆘</span>
+  Crisis helplines &nbsp;|&nbsp; India: <strong style="color:#ffb3b3">iCall 9152987821</strong> &nbsp;·&nbsp;
+  <strong style="color:#ffb3b3">Vandrevala 1860-2662-345</strong> &nbsp;|&nbsp;
+  International: <strong style="color:#ffb3b3">befrienders.org</strong>
+</div>
+
+<div class="cwrap">
+  <div id="msgs">
+    <div class="wcard" id="wcard">
+      <div class="wico">💙</div>
+      <h2>Hi, I'm here for you</h2>
+      <p>Whatever you're feeling — type it out or tap <strong style="color:var(--accent)">🎤</strong> to speak. I'll listen, understand, and respond with genuine care.</p>
+      <div class="chips">
+        <button class="chip" onclick="quickStart(`I've been feeling really anxious lately and I don't know why.`)"><span>😟</span> I've been feeling anxious lately</button>
+        <button class="chip" onclick="quickStart(`I'm feeling really down and sad today. Nothing feels good.`)"><span>💙</span> I'm feeling sad and low today</button>
+        <button class="chip" onclick="quickStart(`I've been under so much stress. I'm exhausted.`)"><span>😮‍💨</span> I'm overwhelmed and stressed</button>
+        <button class="chip" onclick="quickStart(`I just need someone to talk to. Can we chat?`)"><span>💬</span> I just need someone to talk to</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="mbar">
+    <span class="mlbl">How are you feeling?</span>
+    <button class="mb" onclick="quickStart('I am feeling happy and good today!')">😄 Happy</button>
+    <button class="mb" onclick="quickStart('I feel anxious and nervous right now.')">😰 Anxious</button>
+    <button class="mb" onclick="quickStart('I am feeling very sad and low today.')">😢 Sad</button>
+    <button class="mb" onclick="quickStart('I am feeling very angry and frustrated.')">😤 Angry</button>
+    <button class="mb" onclick="quickStart('I feel lonely and empty inside.')">🫂 Lonely</button>
+    <button class="mb" onclick="quickStart('I am completely exhausted and burned out.')">😴 Exhausted</button>
+  </div>
+
+  <div class="iarea">
+    <div class="irow" id="irow">
+      <textarea id="inp" placeholder="Type your feelings… or tap 🎤 to speak" rows="1"></textarea>
+      <button id="micBtn" onclick="toggleMic()" title="Tap to speak — voice converts to text">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="2" width="6" height="11" rx="3"/>
+          <path d="M19 10a7 7 0 01-14 0"/>
+          <line x1="12" y1="19" x2="12" y2="22"/>
+          <line x1="8" y1="22" x2="16" y2="22"/>
+        </svg>
+      </button>
+      <button id="sendBtn" onclick="sendMsg()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+    <div id="vstrip">
+      <div class="vsleft">
+        <div class="sbars"><div class="sb"></div><div class="sb"></div><div class="sb"></div><div class="sb"></div><div class="sb"></div></div>
+        <span id="vstripTxt">Listening…</span>
+      </div>
+      <button id="vstopBtn" onclick="stopMic(false)">■ Stop</button>
+    </div>
+    <p class="ihint">Enter to send · Shift+Enter new line · 🎤 speak → auto-sends after pause</p>
+  </div>
+</div>
+
+<div id="permToast">
+  🎤 Microphone blocked.<br>
+  Click 🔒 in address bar → Microphone → <strong>Allow</strong> → refresh.
+  <br><button onclick="this.parentElement.classList.remove('show')">OK</button>
+</div>
+
+<script>
+/* ── SYSTEM PROMPT ── */
+const SYS = `You are a warm, compassionate, deeply empathetic mental health support companion. Speak like a caring close friend — natural, human, never clinical or robotic.
+
+CORE RULES:
+- Always respond SPECIFICALLY to exactly what the person just said. Never give a generic reply.
+- First acknowledge and validate their specific feelings before anything else.
+- Never minimize feelings. Never say "at least..." or "it could be worse".
+- Short to medium responses. No bullet points, no headers. Talk naturally.
+- Light emojis occasionally. Ask one caring follow-up question.
+
+EMOTIONAL SUPPORT:
+- Sadness: sit with them in it first, don't rush to fix
+- Anxiety: ground them, help them feel calm and safe
+- Anger: validate it, help process what's underneath
+- Hopeless: gently remind them of their inner strength
+
+CRISIS — if user mentions: want to die, suicidal, self-harm, hurt myself, ending it:
+- Deep genuine care, not alarm. Say you hear them and you care.
+- India helplines: iCall 9152987821, Vandrevala 1860-2662-345
+- International: befrienders.org
+- Ask if they are safe right now. Never judge. Stay with them.
+
+Phrases to use: "I hear you", "That makes so much sense", "You're not alone in this".`;
+
+/* ── STATE ── */
+let provider = 'groq';  // 'groq' or 'anthropic'
+let API_KEY  = '';
+let history  = [];
+let busy     = false;
+
+const el = id => document.getElementById(id);
+const getTime = () => new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const isCrisis = t => ['kill myself','end my life','suicide','suicidal','want to die',
+  'hurt myself','self harm','self-harm','ending it','no reason to live',
+  'not worth living','better off dead','take my life','end it all',"don't want to live"
+].some(k => t.toLowerCase().includes(k));
+
+/* ── SETUP ── */
+function switchTab(p){
+  provider = p;
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    t.classList.toggle('active', (i===0&&p==='groq')||(i===1&&p==='anthropic'));
+  });
+  el('panel-groq').classList.toggle('show', p==='groq');
+  el('panel-anthropic').classList.toggle('show', p==='anthropic');
+}
+
+function toggleVis(id){
+  const i=el(id); i.type=i.type==='password'?'text':'password';
+}
+
+function startChat(){
+  const keyId  = provider==='groq' ? 'groqKey' : 'anthropicKey';
+  const errId  = provider==='groq' ? 'groqErr' : 'anthropicErr';
+  const key    = el(keyId).value.trim();
+  const errEl  = el(errId);
+
+  if(!key){ errEl.textContent='Please enter your API key.'; return; }
+  if(provider==='groq'    && !key.startsWith('gsk_')){ errEl.textContent='Groq keys start with gsk_ — check and try again.'; return; }
+  if(provider==='anthropic' && !key.startsWith('sk-')) { errEl.textContent='Anthropic keys start with sk-ant- — check and try again.'; return; }
+
+  errEl.textContent='';
+  API_KEY = key;
+  sessionStorage.setItem('mhc_key', key);
+  sessionStorage.setItem('mhc_provider', provider);
+  el('setupScreen').style.display='none';
+  el('inp').focus();
+}
+
+// Restore from session
+(function(){
+  const k=sessionStorage.getItem('mhc_key'), p=sessionStorage.getItem('mhc_provider')||'groq';
+  if(k && (k.startsWith('gsk_')||k.startsWith('sk-'))){
+    API_KEY=k; provider=p;
+    el('setupScreen').style.display='none';
+  }
+})();
+
+/* ── MESSAGES ── */
+function addMsg(role,text){
+  const wrap=el('msgs'),wc=el('wcard'); if(wc)wc.remove();
+  const row=document.createElement('div'); row.className=`mrow ${role}`;
+  const crisis=role==='user'&&isCrisis(text);
+  if(role==='bot'){
+    row.innerHTML=`<div class="mav bav">🧠</div><div class="bwrap"><span class="sname">Mental Health Support</span><div class="bub">${text.replace(/\n/g,'<br>')}</div><span class="mt">${getTime()}</span></div>`;
+  } else {
+    row.innerHTML=`<div class="bwrap"><span class="sname">You</span><div class="bub${crisis?' crisis':''}">${esc(text).replace(/\n/g,'<br>')}</div><span class="mt">${getTime()}</span></div><div class="mav uav">🙂</div>`;
+  }
+  wrap.appendChild(row); wrap.scrollTop=wrap.scrollHeight;
+}
+function showTyping(){
+  const wrap=el('msgs'),row=document.createElement('div');
+  row.className='mrow bot'; row.id='typing';
+  row.innerHTML=`<div class="mav bav">🧠</div><div class="bwrap"><span class="sname">Mental Health Support</span><div class="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div></div>`;
+  wrap.appendChild(row); wrap.scrollTop=wrap.scrollHeight;
+}
+function hideTyping(){ const t=el('typing'); if(t)t.remove(); }
+
+/* ── SEND MESSAGE ── */
+async function sendMsg(){
+  const inp=el('inp'), text=inp.value.trim();
+  if(!text||busy) return;
+  if(!API_KEY){ el('setupScreen').style.display='flex'; return; }
+
+  inp.value=''; inp.style.height='auto';
+  busy=true; el('sendBtn').disabled=true;
+  addMsg('user',text);
+  history.push({role:'user',content:text});
+  showTyping();
+
+  try {
+    let res, data, reply;
+
+    if(provider === 'groq'){
+      /* ── GROQ API (free, OpenAI-compatible) ── */
+      res = await fetch('https://api.groq.com/openai/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+API_KEY},
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {role:'system', content:SYS},
+            ...history
+          ],
+          max_tokens: 1024,
+          temperature: 0.85
+        })
+      });
+      data = await res.json();
+
+      if(data.error){
+        const msg = data.error.message||JSON.stringify(data.error);
+        if(msg.toLowerCase().includes('invalid api key')||msg.toLowerCase().includes('unauthorized')){
+          showSetupError('Invalid Groq API key. Please check and re-enter.');
+        } else if(msg.toLowerCase().includes('rate limit')){
+          addMsg('bot','You\'re sending messages a bit too fast — wait a few seconds and try again 💚');
+          history.pop();
+        } else {
+          addMsg('bot',`Issue: ${msg}`);
+          history.pop();
+        }
+        hideTyping(); busy=false; el('sendBtn').disabled=false; return;
+      }
+      reply = data.choices?.[0]?.message?.content || '';
+
+    } else {
+      /* ── ANTHROPIC API ── */
+      res = await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'x-api-key': API_KEY,
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body: JSON.stringify({
+          model:'claude-sonnet-4-20250514',
+          max_tokens:1024,
+          system:SYS,
+          messages:history
+        })
+      });
+      data = await res.json();
+
+      if(data.error){
+        const msg = data.error.message||JSON.stringify(data.error);
+        if(msg.toLowerCase().includes('credit')||msg.toLowerCase().includes('billing')){
+          showSetupError('Your Anthropic credits ran out. Switch to Groq (free) tab instead, or add credits at console.anthropic.com → Plans & Billing.');
+        } else if(msg.toLowerCase().includes('invalid')||msg.toLowerCase().includes('auth')){
+          showSetupError('Invalid Anthropic API key. Please check and re-enter.');
+        } else {
+          addMsg('bot',`Issue: ${msg}`);
+          history.pop();
+        }
+        hideTyping(); busy=false; el('sendBtn').disabled=false; return;
+      }
+      reply = data.content?.filter(b=>b.type==='text').map(b=>b.text).join('\n') || '';
+    }
+
+    hideTyping();
+    if(reply){
+      history.push({role:'assistant',content:reply});
+      addMsg('bot',reply);
+    } else {
+      addMsg('bot',"I didn't catch that — could you try again?");
+      history.pop();
+    }
+
+  } catch(err){
+    hideTyping();
+    addMsg('bot','Connection error — check your internet and try again.');
+    history.pop();
+  }
+
+  busy=false; el('sendBtn').disabled=false; el('inp').focus();
+}
+
+function showSetupError(msg){
+  history.pop();
+  API_KEY='';
+  sessionStorage.removeItem('mhc_key');
+  const errId = provider==='groq'?'groqErr':'anthropicErr';
+  el(errId).textContent = msg;
+  el('setupScreen').style.display='flex';
+}
+
+function quickStart(t){ el('inp').value=t; sendMsg(); }
+
+/* ── VOICE ── */
+let recog=null,listening=false,finalBuf='',silTimer=null;
+function toggleMic(){ listening?stopMic(false):startMic(); }
+function startMic(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert('Speech recognition requires Google Chrome or Microsoft Edge.');return;}
+  navigator.mediaDevices.getUserMedia({audio:true})
+    .then(s=>{s.getTracks().forEach(t=>t.stop());_go();})
+    .catch(()=>el('permToast').classList.add('show'));
+}
+function _go(){
+  if(recog){try{recog.abort();}catch(e){}}
+  finalBuf=''; el('inp').value=''; clearTimeout(silTimer);
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recog=new SR(); recog.continuous=true; recog.interimResults=true; recog.lang='en-IN';
+  recog.onstart=()=>{
+    listening=true;
+    el('micBtn').classList.add('on'); el('irow').classList.add('listening');
+    el('inp').placeholder='🎤 Speak your feelings…';
+    el('vstrip').className='vstrip show'; el('vstripTxt').textContent='Listening… speak now';
+  };
+  recog.onresult=e=>{
+    clearTimeout(silTimer);
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal) finalBuf+=e.results[i][0].transcript+' ';
+      else interim+=e.results[i][0].transcript;
+    }
+    const display=(finalBuf+interim).trim();
+    el('inp').value=display; autoResize(el('inp'));
+    if(display){const s=display.length>45?'…'+display.slice(-45):display; el('vstripTxt').textContent=`"${s}"`;}
+    if(finalBuf.trim()) silTimer=setTimeout(()=>stopMic(true),2000);
+  };
+  recog.onerror=e=>{
+    if(e.error==='not-allowed'||e.error==='permission-denied'){el('permToast').classList.add('show');stopMic(false);}
+    else if(e.error==='no-speech'){if(listening){try{recog.stop();}catch(ex){}setTimeout(_go,200);}}
+    else if(e.error==='network'){if(listening)setTimeout(_go,500);}
+    else if(e.error!=='aborted') stopMic(false);
+  };
+  recog.onend=()=>{if(listening&&!silTimer){try{recog.start();}catch(ex){listening=false;_uiOff();}}};
+  try{recog.start();}catch(e){listening=false;_uiOff();}
+}
+function stopMic(andSend){
+  clearTimeout(silTimer); silTimer=null; listening=false;
+  if(recog){try{recog.stop();}catch(e){try{recog.abort();}catch(e2){}} recog=null;}
+  const text=el('inp').value.trim();
+  if(andSend&&text){
+    el('vstripTxt').textContent='✓ Sending…'; el('vstrip').className='vstrip show done';
+    setTimeout(()=>{_uiOff();sendMsg();},500);
+  } else _uiOff();
+}
+function _uiOff(){
+  el('micBtn').classList.remove('on'); el('irow').classList.remove('listening');
+  el('inp').placeholder='Type your feelings… or tap 🎤 to speak';
+  el('vstrip').className='vstrip'; el('vstripTxt').textContent='Listening…';
+}
+
+/* ── TEXTAREA ── */
+function autoResize(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,120)+'px';}
+const inp=el('inp');
+inp.addEventListener('input',()=>autoResize(inp));
+inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();stopMic(false);sendMsg();}});
+</script>
+</body>
+</html>
