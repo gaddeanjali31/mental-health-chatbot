@@ -236,7 +236,28 @@ header{display:flex;align-items:center;justify-content:space-between;padding:13p
   International: <strong style="color:#ffb3b3">befrienders.org</strong>
 </div>
 
-<div class="cwrap">
+<!-- MAIN CONTAINER -->
+<div style="display:flex; flex:1; min-height:0; overflow:hidden;">
+
+  <!-- SIDEBAR -->
+  <div style="width:250px; background:#0f172a; color:white; display:flex; flex-direction:column; height:100%; flex-shrink:0;">
+    
+    <div style="padding:12px; font-weight:bold;">📜 Chat History</div>
+
+    <button onclick="newChat()" 
+      style="margin:10px; padding:8px; width:90%; flex-shrink:0;">
+      + New Chat
+    </button>
+
+    <div id="historyList" 
+         style="flex:1; overflow-y:auto; padding:5px;">
+    </div>
+  </div>
+
+  
+  
+  <div class="cwrap">
+
   <div id="msgs">
     <div class="wcard" id="wcard">
       <div class="wico">💙</div>
@@ -295,6 +316,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:13p
   Click 🔒 in address bar → Microphone → <strong>Allow</strong> → refresh.
   <br><button onclick="this.parentElement.classList.remove('show')">OK</button>
 </div>
+</div>
 
 <script>
 /* ── SYSTEM PROMPT ── */
@@ -325,6 +347,8 @@ Phrases to use: "I hear you", "That makes so much sense", "You're not alone in t
 let provider = 'groq';  // 'groq' or 'anthropic'
 let API_KEY  = '';
 let history  = [];
+let currentChatId = null;
+let allChats = JSON.parse(localStorage.getItem("allChats")) || [];
 let busy     = false;
 
 const el = id => document.getElementById(id);
@@ -399,18 +423,20 @@ function hideTyping(){ const t=el('typing'); if(t)t.remove(); }
 /* ── SEND MESSAGE ── */
 async function sendMsg(){
   const inp=el('inp'), text=inp.value.trim();
-  if(!text||busy) return;
+  if(!text) return;
+if(busy){
+  console.log("Still processing...");
+  return;
+}
+  
   if(!API_KEY){ el('setupScreen').style.display='flex'; return; }
-
   inp.value=''; inp.style.height='auto';
   busy=true; el('sendBtn').disabled=true;
   addMsg('user',text);
   history.push({role:'user',content:text});
   showTyping();
-
   try {
     let res, data, reply;
-
     if(provider === 'groq'){
       /* ── GROQ API (free, OpenAI-compatible) ── */
       res = await fetch('https://api.groq.com/openai/v1/chat/completions',{
@@ -427,7 +453,6 @@ async function sendMsg(){
         })
       });
       data = await res.json();
-
       if(data.error){
         const msg = data.error.message||JSON.stringify(data.error);
         if(msg.toLowerCase().includes('invalid api key')||msg.toLowerCase().includes('unauthorized')){
@@ -442,7 +467,6 @@ async function sendMsg(){
         hideTyping(); busy=false; el('sendBtn').disabled=false; return;
       }
       reply = data.choices?.[0]?.message?.content || '';
-
     } else {
       /* ── ANTHROPIC API ── */
       res = await fetch('https://api.anthropic.com/v1/messages',{
@@ -461,7 +485,6 @@ async function sendMsg(){
         })
       });
       data = await res.json();
-
       if(data.error){
         const msg = data.error.message||JSON.stringify(data.error);
         if(msg.toLowerCase().includes('credit')||msg.toLowerCase().includes('billing')){
@@ -476,36 +499,37 @@ async function sendMsg(){
       }
       reply = data.content?.filter(b=>b.type==='text').map(b=>b.text).join('\n') || '';
     }
-
     hideTyping();
     if(reply){
-      history.push({role:'assistant',content:reply});
-      addMsg('bot',reply);
-    } else {
-      addMsg('bot',"I didn't catch that — could you try again?");
-      history.pop();
-    }
+  history.push({role:'assistant',content:reply});
+  addMsg('bot',reply);
+  // ✅ SAVE FULL CHAT SESSION
+  if (!currentChatId) {
+  // first message → create new chat
+  currentChatId = Date.now();
 
-  } catch(err){
-    hideTyping();
-    addMsg('bot','Connection error — check your internet and try again.');
-    history.pop();
+  allChats.push({
+    id: currentChatId,
+    messages: [...history]
+  });
+} else {
+  // update existing chat
+  const chat = allChats.find(c => c.id === currentChatId);
+  if (chat) {
+    chat.messages = [...history];
   }
-
-  busy=false; el('sendBtn').disabled=false; el('inp').focus();
 }
-
-function showSetupError(msg){
-  history.pop();
-  API_KEY='';
-  sessionStorage.removeItem('mhc_key');
-  const errId = provider==='groq'?'groqErr':'anthropicErr';
-  el(errId).textContent = msg;
-  el('setupScreen').style.display='flex';
+  localStorage.setItem("allChats", JSON.stringify(allChats));
+  loadHistorySidebar(); // refresh sidebar
 }
-
-function quickStart(t){ el('inp').value=t; sendMsg(); }
-
+} catch (err) {
+  hideTyping();
+  addMsg('bot', 'Something went wrong. Please try again 💚');
+} finally {
+  busy = false;
+  el('sendBtn').disabled = false;
+}
+}
 /* ── VOICE ── */
 let recog=null,listening=false,finalBuf='',silTimer=null;
 function toggleMic(){ listening?stopMic(false):startMic(); }
@@ -554,7 +578,11 @@ function stopMic(andSend){
   const text=el('inp').value.trim();
   if(andSend&&text){
     el('vstripTxt').textContent='✓ Sending…'; el('vstrip').className='vstrip show done';
-    setTimeout(()=>{_uiOff();sendMsg();},500);
+    setTimeout(()=>{
+  _uiOff();
+  busy = false;   // 🔥 force reset
+  sendMsg();
+},500);
   } else _uiOff();
 }
 function _uiOff(){
@@ -562,12 +590,60 @@ function _uiOff(){
   el('inp').placeholder='Type your feelings… or tap 🎤 to speak';
   el('vstrip').className='vstrip'; el('vstripTxt').textContent='Listening…';
 }
-
 /* ── TEXTAREA ── */
 function autoResize(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,120)+'px';}
 const inp=el('inp');
 inp.addEventListener('input',()=>autoResize(inp));
 inp.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();stopMic(false);sendMsg();}});
+function loadHistorySidebar() {
+  const list = document.getElementById("historyList");
+  list.innerHTML = "";
+  allChats.slice().reverse().forEach(chat => {
+    const item = document.createElement("div");
+    item.style.padding = "10px";
+    item.style.borderBottom = "1px solid #222";
+    item.style.cursor = "pointer";
+    const firstUserMsg = chat.messages.find(m => m.role === "user")?.content || "New Chat";
+item.innerText = firstUserMsg.slice(0, 30) + "...";
+    
+    item.onclick = () => {
+      loadChat(chat);
+    };
+
+    list.appendChild(item);
+  });
+}
+function loadChat(chat) {
+  currentChatId = chat.id;
+  history = chat.messages;
+
+  const msgs = document.getElementById("msgs");
+  msgs.innerHTML = "";
+
+  chat.messages.forEach(m => {
+    addMsg(m.role === "user" ? "user" : "bot", m.content);
+  });
+}
+
+function newChat() {
+  history = [];
+  currentChatId = null;
+  document.getElementById("msgs").innerHTML = "";
+}
+  function showSetupError(msg){
+  history.pop();
+  API_KEY='';
+  sessionStorage.removeItem('mhc_key');
+  const errId = provider==='groq'?'groqErr':'anthropicErr';
+  el(errId).textContent = msg;
+  el('setupScreen').style.display='flex';
+}
+function quickStart(t){ 
+  el('inp').value=t; 
+  sendMsg(); 
+}
+// Initialize
+loadHistorySidebar();
 </script>
 </body>
 </html>
